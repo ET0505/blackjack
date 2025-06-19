@@ -59,20 +59,20 @@ class MyWindow(QWidget):
         for card in self.dealerCards:
             self.dealerSum = self.calculateSum(self.dealerSum, card)
 
-        self.message = QLabel("The cards have been dealt.", self)
+        self.message = QLabel(f"You currently hold {self.userSum}", self)
         self.message.setStyleSheet("font-size: 14pt;")
         self.message.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.message)
 
-        # Display a random card from the dealer's hand
-        self.dealerLabel = QLabel(f"The dealer has a {random.choice(self.dealerCards)}", self)
-        self.dealerLabel.setAlignment(Qt.AlignCenter)
-        self.layout.addWidget(self.dealerLabel)
-
         # Display the user's cards 
-        self.userLabel = QLabel(f"You have {", ".join(self.userCards)}", self)
+        self.userLabel = QLabel(f"You have: {", ".join(self.userCards)}", self)
         self.userLabel.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.userLabel)
+
+        # Display a random card from the dealer's hand
+        self.dealerLabel = QLabel(f"The dealer has: {self.dealerCards[0]}", self)
+        self.dealerLabel.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.dealerLabel)
         
         # Create the button for users to hit 
         self.hitButton = QPushButton("Hit", self)
@@ -83,12 +83,18 @@ class MyWindow(QWidget):
         self.standButton = QPushButton("Stand", self)
         self.standButton.clicked.connect(self.on_stand)
         self.layout.addWidget(self.standButton)
+
+        # Create the button for users to double 
+        self.doubleButton = QPushButton("Double", self)
+        self.doubleButton.clicked.connect(self.on_double)
+        self.layout.addWidget(self.doubleButton)
     
         # End the game if the user gets blackjack 
         if self.userSum == 21:
             self.won()
 
     
+    # Execute block to calculate the sum 
     def calculateSum(self, initialSum, newCard):
         if newCard in ["J", "Q", "K"]:
             value = 10
@@ -98,13 +104,16 @@ class MyWindow(QWidget):
             value = int(newCard)
 
         initialSum += value
+
+        # Ensure aces are counted as 1 and not 11
+        if initialSum > 21 and "A" in self.userCards:
+            initialSum -= 10
+
         return initialSum
 
 
     # Execute block if the user decides to hit 
     def on_hit(self):        
-        self.userLabel.hide()
-        
         # Give the user another card and calculate the total sum
         cardHit = random.choice(self.nums)
         self.userCards.append(cardHit)
@@ -129,6 +138,10 @@ class MyWindow(QWidget):
             self.standButton = QPushButton("Stand", self)
             self.standButton.clicked.connect(self.on_stand)
             self.layout.addWidget(self.standButton)
+
+            self.doubleButton = QPushButton("Double", self)
+            self.doubleButton.clicked.connect(self.on_double)
+            self.layout.addWidget(self.doubleButton)
 
 
     # Execute block if the user decides to stand 
@@ -161,15 +174,62 @@ class MyWindow(QWidget):
                 self.won()
     
 
+    # Execute block if the user decides to double
+    def on_double(self):
+        # Give the user another card and calculate the total sum
+        cardHit = random.choice(self.nums)
+        self.userCards.append(cardHit)
+        self.userSum = self.calculateSum(self.userSum, cardHit)
+
+        # Dealer continues to hit until their total sum is 17 or greater 
+        while self.dealerSum < 17:
+            cardHit = random.choice(self.nums)
+            self.dealerCards.append(cardHit)
+            self.dealerSum = self.calculateSum(self.dealerSum, cardHit)
+
+        # End the game if the user gets blackjack
+        if self.userSum == 21:
+            self.won()
+
+        # End the game if the user busts  
+        elif self.userSum > 21:
+            self.lost()
+
+        # End the game as if the user stands 
+        else:
+            # End the game in a tie if the user's total and the dealer's total are equal 
+            if self.dealerSum == self.userSum:
+                self.push()
+            
+            # End the game if the dealer is closer to 21 
+            elif self.dealerSum > self.userSum:
+                self.lost()
+
+            # End the game if the user is closer to 21 
+            else:
+                self.won()
+
+
     # Displays the updated cards in the user's hand 
     def update_ui(self):        
-        self.userLabel.deleteLater()
-        self.hitButton.deleteLater()
-        self.standButton.deleteLater()
-        
-        self.userLabel = QLabel(f"You have {", ".join(self.userCards)}", self)
+        self.delete_items()
+
+        self.message = QLabel(f"You currently hold {self.userSum}", self)
+        self.message.setStyleSheet("font-size: 14pt;")
+        self.message.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.message)
+
+        self.userLabel = QLabel(f"You have: {", ".join(self.userCards)}", self)
         self.userLabel.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.userLabel)
+
+        self.dealerLabel = QLabel(f"The dealer has: {self.dealerCards[0]}", self)
+        self.dealerLabel.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.dealerLabel)
+
+        self.hitButton.deleteLater()
+        self.standButton.deleteLater()
+        self.doubleButton.deleteLater()
 
 
     # Creates the retry button to play again and restart the game 
@@ -181,9 +241,9 @@ class MyWindow(QWidget):
 
     # Execute block if the user wins 
     def won(self):
-        self.delete_items()
-        self.reveal_dealer()
         self.update_ui()
+        self.dealerLabel.deleteLater()
+        self.reveal_dealer()
 
         self.winMessage = QLabel("Congratulations, you won!", self)
         self.winMessage.setAlignment(Qt.AlignCenter)
@@ -193,10 +253,10 @@ class MyWindow(QWidget):
 
     # Execute block if the user loses 
     def lost(self):
-        self.delete_items()
-
-        self.reveal_dealer()
         self.update_ui()
+        self.dealerLabel.deleteLater()
+        self.reveal_dealer()
+        
         self.loseMessage = QLabel("Bad luck, you lost!", self)
         self.loseMessage.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.loseMessage)
@@ -205,10 +265,10 @@ class MyWindow(QWidget):
 
     # Execute block if there is a tie 
     def push(self):
-        self.delete_items()
-        self.reveal_dealer()
         self.update_ui()
-
+        self.dealerLabel.deleteLater()
+        self.reveal_dealer()
+        
         self.pushMessage = QLabel("Push!", self)
         self.pushMessage.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.pushMessage)
@@ -217,7 +277,7 @@ class MyWindow(QWidget):
 
     # Display the cards in the dealer's hand
     def reveal_dealer(self):
-        self.dealerLabel = QLabel(f"Dealer has {", ".join(self.dealerCards)}", self)
+        self.dealerLabel = QLabel(f"The dealer had: {", ".join(self.dealerCards)}", self)
         self.dealerLabel.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.dealerLabel)
 
